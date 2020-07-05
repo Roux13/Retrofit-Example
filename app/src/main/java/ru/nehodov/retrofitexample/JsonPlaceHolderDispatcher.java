@@ -1,8 +1,8 @@
 package ru.nehodov.retrofitexample;
 
+import android.util.Log;
 import android.widget.TextView;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import retrofit2.Call;
@@ -10,13 +10,16 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
+import ru.nehodov.retrofitexample.model.Comment;
+import ru.nehodov.retrofitexample.model.Post;
+import ru.nehodov.retrofitexample.presenter.PresenterInterface;
 
 public class JsonPlaceHolderDispatcher {
 
     private static final String BASE_URL = "https://jsonplaceholder.typicode.com/";
 
-    private Retrofit retrofit;
-    private JsonPlaceHolderApi jsonApi;
+    private final Retrofit retrofit;
+    private final JsonPlaceHolderApi jsonApi;
 
     public JsonPlaceHolderDispatcher() {
         this.retrofit = new Retrofit.Builder()
@@ -26,29 +29,21 @@ public class JsonPlaceHolderDispatcher {
         this.jsonApi = retrofit.create(JsonPlaceHolderApi.class);
     }
 
-    public void getAllPostsAsStrings(JsonPlaceHolderAdapter adapter) {
-        List<String> postsAsStrings = new ArrayList<>();
+    public void getAllPosts(PresenterInterface presenter) {
         Call<List<Post>> call = jsonApi.getPosts();
         call.enqueue(new Callback<List<Post>>() {
             @Override
             public void onResponse(Call<List<Post>> call, Response<List<Post>> response) {
                 if (!response.isSuccessful()) {
-                    postsAsStrings.add(formatErrorCode(response));
-                    adapter.setPosts(postsAsStrings);
+                    presenter.showMessage(formatErrorCode(response));
                     return;
                 }
-                List<Post> posts = response.body();
-                if (posts != null) {
-                    for (Post post : posts) {
-                        postsAsStrings.add(formatPostContent(post));
-                    }
-                }
-                adapter.setPosts(postsAsStrings);
+                presenter.setPosts(response.body());
             }
 
             @Override
             public void onFailure(Call<List<Post>> call, Throwable t) {
-                t.printStackTrace();
+               presenter.showMessage(t.getMessage());
             }
         });
     }
@@ -114,6 +109,83 @@ public class JsonPlaceHolderDispatcher {
             @Override
             public void onFailure(Call<List<Comment>> call, Throwable t) {
                 textView.setText(t.getMessage());
+            }
+        });
+    }
+
+    public void createPost(PresenterInterface presenter, Post post) {
+        Call<Post> call = jsonApi.createPost(post);
+        call.enqueue(new Callback<Post>() {
+            @Override
+            public void onResponse(Call<Post> call, Response<Post> response) {
+                if (!response.isSuccessful()) {
+                    Log.d(this.getClass().getSimpleName(), formatErrorCode(response));
+                    presenter.showMessage(formatErrorCode(response));
+                    return;
+                }
+                presenter.showMessage(formatPostContent(response.body()));
+            }
+
+            @Override
+            public void onFailure(Call<Post> call, Throwable t) {
+                presenter.showMessage(t.getMessage());
+            }
+        });
+    }
+
+//    public void putPost(
+//            RetrofitExampleAdapter adapter, int id, Integer userId, String title, String text
+//    ) {
+//        Post post = new Post(userId, title, text);
+//        Call<Post> call = jsonApi.putPost(id, post);
+//        call.enqueue(new Callback<Post>() {
+//            @Override
+//            public void onResponse(Call<Post> call, Response<Post> response) {
+//                if (!response.isSuccessful()) {
+//                    adapter.setPosts(Collections.singletonList(formatErrorCode(response)));
+//                    return;
+//                }
+//                adapter.setPosts(Collections.singletonList(formatPostContent(response.body())));
+//            }
+//
+//            @Override
+//            public void onFailure(Call<Post> call, Throwable t) {
+//                t.printStackTrace();
+//            }
+//        });
+//    }
+
+    public void updatePost(PresenterInterface presenter, Post post) {
+        Call<Post> call = jsonApi.updatePost(post.getId(), post);
+        call.enqueue(new Callback<Post>() {
+            @Override
+            public void onResponse(Call<Post> call, Response<Post> response) {
+                if (!response.isSuccessful()) {
+                    presenter.showMessage(formatErrorCode(response));
+                    return;
+                }
+                presenter.showMessage(formatPostContent(response.body()));
+            }
+
+            @Override
+            public void onFailure(Call<Post> call, Throwable t) {
+                presenter.showMessage(t.getMessage());
+            }
+        });
+    }
+
+    public void deletePost(PresenterInterface presenter, Post post) {
+        Call<Void> call = jsonApi.deletePost(post.getId());
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                Log.d("TAG", String.valueOf(response.code()));
+                presenter.showMessage(formatErrorCode(response));
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                t.printStackTrace();
             }
         });
     }

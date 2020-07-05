@@ -1,4 +1,4 @@
-package ru.nehodov.retrofitexample;
+package ru.nehodov.retrofitexample.model;
 
 import com.google.gson.annotations.SerializedName;
 
