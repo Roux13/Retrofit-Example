@@ -17,9 +17,9 @@ public class RetrofitExamplePresenter implements PresenterInterface {
 
     private List<Post> posts;
 
-    public RetrofitExamplePresenter(ViewInterface view, JsonPlaceHolderDispatcher dispatcher) {
+    public RetrofitExamplePresenter(ViewInterface view) {
         this.view = view;
-        this.dispatcher = dispatcher;
+        this.dispatcher = new JsonPlaceHolderDispatcher(this);
         updatePosts();
     }
 
@@ -31,23 +31,23 @@ public class RetrofitExamplePresenter implements PresenterInterface {
 
     @Override
     public void updatePosts() {
-        dispatcher.getAllPosts(this);
+        dispatcher.getAllPosts();
     }
 
     @Override
     public void addPost(Post post) {
-        dispatcher.createPost(this, post);
+        dispatcher.createPost(post);
         updatePosts();
     }
 
     @Override
     public void updatePost(Post post) {
-        dispatcher.updatePost(this, post);
+        dispatcher.updatePost(post);
     }
 
     @Override
     public void deletePost(Post post) {
-        dispatcher.deletePost(this, post);
+        dispatcher.deletePost(post);
     }
 
     @Override

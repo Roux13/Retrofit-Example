@@ -1,16 +1,20 @@
 package ru.nehodov.retrofitexample;
 
 import android.util.Log;
-import android.widget.TextView;
+
+import com.itkacher.okhttpprofiler.OkHttpProfilerInterceptor;
 
 import java.util.List;
+import java.util.Locale;
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-import ru.nehodov.retrofitexample.model.Comment;
 import ru.nehodov.retrofitexample.model.Post;
 import ru.nehodov.retrofitexample.presenter.PresenterInterface;
 
@@ -18,18 +22,51 @@ public class JsonPlaceHolderDispatcher {
 
     private static final String BASE_URL = "https://jsonplaceholder.typicode.com/";
 
-    private final Retrofit retrofit;
+    private final HttpLoggingInterceptor interceptor;
+
+    private final OkHttpClient.Builder httpClient;
+
     private final JsonPlaceHolderApi jsonApi;
 
-    public JsonPlaceHolderDispatcher() {
-        this.retrofit = new Retrofit.Builder()
+    private final PresenterInterface presenter;
+
+    private final OkHttpClient errorInterceptor;
+
+    public JsonPlaceHolderDispatcher(PresenterInterface presenter) {
+        this.presenter = presenter;
+        this.interceptor = new HttpLoggingInterceptor();
+        if (BuildConfig.DEBUG) {
+            interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+        } else {
+            interceptor.setLevel(HttpLoggingInterceptor.Level.BASIC);
+        }
+
+        httpClient = new OkHttpClient.Builder().addInterceptor(interceptor);
+        httpClient.addInterceptor(new OkHttpProfilerInterceptor());
+
+        errorInterceptor = new OkHttpClient.Builder().addInterceptor(chain -> {
+            Request request = chain.request();
+            okhttp3.Response response = chain.proceed(request);
+            int responseCode = response.code();
+            if (!response.isSuccessful()) {
+                String errorMessage = response.body().toString();
+                errorMessage = String.format(
+                        Locale.US, "Code: %d. %s", responseCode, errorMessage);
+                JsonPlaceHolderDispatcher.this.presenter.showMessage(errorMessage);
+            }
+            return response;
+        }).build();
+
+        Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .addConverterFactory(GsonConverterFactory.create())
+                .client(httpClient.build())
+                .client(errorInterceptor)
                 .build();
         this.jsonApi = retrofit.create(JsonPlaceHolderApi.class);
     }
 
-    public void getAllPosts(PresenterInterface presenter) {
+    public void getAllPosts() {
         Call<List<Post>> call = jsonApi.getPosts();
         call.enqueue(new Callback<List<Post>>() {
             @Override
@@ -43,77 +80,12 @@ public class JsonPlaceHolderDispatcher {
 
             @Override
             public void onFailure(Call<List<Post>> call, Throwable t) {
-               presenter.showMessage(t.getMessage());
+                presenter.showMessage(t.getMessage());
             }
         });
     }
 
-    public void setAllCommentsToTextView(TextView textView) {
-        Call<List<Comment>> commentCall = jsonApi.getCommentsFromUrl("comments");
-        commentCall.enqueue(new Callback<List<Comment>>() {
-            @Override
-            public void onResponse(Call<List<Comment>> call, Response<List<Comment>> response) {
-                if (!response.isSuccessful()) {
-                    textView.setText(formatErrorCode(response));
-                    return;
-                }
-                List<Comment> comments = response.body();
-                for (Comment comment : comments) {
-                    textView.append(formatCommentContent(comment));
-                }
-            }
-
-            @Override
-            public void onFailure(Call<List<Comment>> call, Throwable t) {
-                textView.setText(t.getMessage());
-            }
-        });
-    }
-
-    public void setPostToTextView(TextView textView, int postId) {
-        Call<Post> call = jsonApi.getPost(postId);
-        call.enqueue(new Callback<Post>() {
-            @Override
-            public void onResponse(Call<Post> call, Response<Post> response) {
-                if (!response.isSuccessful()) {
-                    textView.setText(formatErrorCode(response));
-                    return;
-                }
-                Post post = response.body();
-                textView.append(formatPostContent(post));
-
-            }
-
-            @Override
-            public void onFailure(Call<Post> call, Throwable t) {
-                textView.setText(t.getMessage());
-            }
-        });
-    }
-
-    public void setCommentToTextView(TextView textView, int postId) {
-        Call<List<Comment>> call = jsonApi.getCommentsByPostId(postId);
-        call.enqueue(new Callback<List<Comment>>() {
-            @Override
-            public void onResponse(Call<List<Comment>> call, Response<List<Comment>> response) {
-                if (!response.isSuccessful()) {
-                    textView.setText(formatErrorCode(response));
-                    return;
-                }
-                List<Comment> comments = response.body();
-                for (Comment comment : comments) {
-                    textView.append(formatCommentContent(comment));
-                }
-            }
-
-            @Override
-            public void onFailure(Call<List<Comment>> call, Throwable t) {
-                textView.setText(t.getMessage());
-            }
-        });
-    }
-
-    public void createPost(PresenterInterface presenter, Post post) {
+    public void createPost(Post post) {
         Call<Post> call = jsonApi.createPost(post);
         call.enqueue(new Callback<Post>() {
             @Override
@@ -133,29 +105,7 @@ public class JsonPlaceHolderDispatcher {
         });
     }
 
-//    public void putPost(
-//            RetrofitExampleAdapter adapter, int id, Integer userId, String title, String text
-//    ) {
-//        Post post = new Post(userId, title, text);
-//        Call<Post> call = jsonApi.putPost(id, post);
-//        call.enqueue(new Callback<Post>() {
-//            @Override
-//            public void onResponse(Call<Post> call, Response<Post> response) {
-//                if (!response.isSuccessful()) {
-//                    adapter.setPosts(Collections.singletonList(formatErrorCode(response)));
-//                    return;
-//                }
-//                adapter.setPosts(Collections.singletonList(formatPostContent(response.body())));
-//            }
-//
-//            @Override
-//            public void onFailure(Call<Post> call, Throwable t) {
-//                t.printStackTrace();
-//            }
-//        });
-//    }
-
-    public void updatePost(PresenterInterface presenter, Post post) {
+    public void updatePost(Post post) {
         Call<Post> call = jsonApi.updatePost(post.getId(), post);
         call.enqueue(new Callback<Post>() {
             @Override
@@ -174,7 +124,7 @@ public class JsonPlaceHolderDispatcher {
         });
     }
 
-    public void deletePost(PresenterInterface presenter, Post post) {
+    public void deletePost(Post post) {
         Call<Void> call = jsonApi.deletePost(post.getId());
         call.enqueue(new Callback<Void>() {
             @Override
@@ -191,7 +141,7 @@ public class JsonPlaceHolderDispatcher {
     }
 
     private String formatErrorCode(Response<?> response) {
-        return String.format("Code: %s", response.code());
+        return String.format("Code: %s, %s", response.code(), response.body());
     }
 
     private String formatPostContent(Post post) {
@@ -199,12 +149,5 @@ public class JsonPlaceHolderDispatcher {
                 "ID: %s%n user ID: %s%n Title: %s%n Text: %s%n%n",
                 post.getId(), post.getUserId(), post.getTitle(), post.getText()
         );
-    }
-
-    private String formatCommentContent(Comment comment) {
-        return String.format(
-                "Post ID: %s%n ID: %s%n Name: %s%n Email: %s%n Text: %s%n%n",
-                comment.getPostId(), comment.getId(), comment.getName(),
-                comment.getEmail(), comment.getText());
     }
 }

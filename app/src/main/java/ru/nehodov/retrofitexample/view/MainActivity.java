@@ -7,7 +7,6 @@ import androidx.fragment.app.FragmentManager;
 import android.os.Bundle;
 import android.widget.Toast;
 
-import ru.nehodov.retrofitexample.JsonPlaceHolderDispatcher;
 import ru.nehodov.retrofitexample.R;
 import ru.nehodov.retrofitexample.model.Post;
 import ru.nehodov.retrofitexample.presenter.PresenterInterface;
@@ -28,7 +27,7 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        presenter = new RetrofitExamplePresenter(this, new JsonPlaceHolderDispatcher());
+        presenter = new RetrofitExamplePresenter(this);
 
         fm = getSupportFragmentManager();
         Fragment fragment = fm.findFragmentById(R.id.host);
@@ -86,6 +85,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void showMessage(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        this.runOnUiThread(() ->
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show());
     }
 }
